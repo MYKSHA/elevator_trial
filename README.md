@@ -10,4 +10,4 @@ tests/     cocotb/pytest suite
 golden/    correct reference RTL (local dev only; not on HUD branches)
 ```
 
-See `SPEC.md` and `TESTING.md` for design and test instructions.
+See `SPEC.md`, `TESTING.md`, and `prompt.txt` for design and task instructions.

@@ -1,0 +1,7 @@
+Fix the elevator control RTL in sources/ so it passes the hidden test suite.
+
+Implement correct behavior for:
+- sources/elevator_controller.sv — 16-floor single-car controller (transit hall-call buffer with capacity limit, e-stop transit save/restore, door hold beep)
+- sources/elevator_group.sv — six-lift bank with load-aware hall-call dispatch and FIFO queue
+
+Read SPEC.md for the full design. Do not modify files under tests/.
