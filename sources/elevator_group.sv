@@ -113,7 +113,7 @@ module elevator_dispatch #(
 
         lift_id = LIFT_W'(lift_idx);
 
-        if (estop || (hold_beep && (call_f != lift_f))) begin
+        if (estop || hold_beep) begin
             return SCORE_UNAVAILABLE;
         end
 
@@ -125,7 +125,7 @@ module elevator_dispatch #(
             metric = SCORE_W'(lift_id);
         end else if (idle) begin
             band   = SCORE_W'(1);
-            metric = (SCORE_W'(distance) << 2) + SCORE_W'(load);
+            metric = (SCORE_W'(distance) << 3) + (SCORE_W'(load) << 2);
         end else if (moving_favorably(lift_f, call_f, call_is_up, moving_up, moving_down, dir_up, dir_down)) begin
             band   = SCORE_W'(2);
             metric = (SCORE_W'(distance) << 1) + SCORE_W'(load);

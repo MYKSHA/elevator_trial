@@ -271,7 +271,7 @@ module elevator_controller #(
         logic [NUM_FLOORS-1:0] new_transit;
         logic                  skip_ground_floor;
 
-        skip_ground_floor      = dir_down_q && !idle_q;
+        skip_ground_floor      = 1'b0;
 
         state_d                = state_q;
         requests_d             = requests_q;
@@ -296,9 +296,6 @@ module elevator_controller #(
         estop_saved_transit_d  = estop_saved_transit_q;
 
         floor_has_request = requests_q[floor_q] | transit_q[floor_q];
-        if (state_q == ST_MOVING_DOWN) begin
-            floor_has_request = requests_q[floor_q];
-        end
         any_request       = |requests_q;
         can_move_up       = (floor_q < FLOOR_W'(TOP_FLOOR)) && !top_limit;
         can_move_down     = (floor_q > FLOOR_W'(0)) && !bottom_limit;
@@ -341,7 +338,17 @@ module elevator_controller #(
         end
 
         if (|new_transit) begin
-            transit_d = transit_q | new_transit;
+            logic [FLOOR_W-1:0] transit_count;
+            logic [NUM_FLOORS-1:0] allowed_transit;
+            transit_count   = count_bits(transit_q);
+            allowed_transit = '0;
+            for (int i = 0; i < int'(NUM_FLOORS); i++) begin
+                if (new_transit[i] && (transit_count < FLOOR_W'(MAX_TRANSIT_STOPS))) begin
+                    allowed_transit[i] = 1'b1;
+                    transit_count      = transit_count + FLOOR_W'(1);
+                end
+            end
+            transit_d = transit_q | allowed_transit;
         end
 
         if (reset) begin
@@ -367,6 +374,7 @@ module elevator_controller #(
                 estop_saved_dir_up_d   = dir_up_q;
                 estop_saved_dir_down_d = dir_down_q;
                 estop_saved_state_d    = state_q;
+                estop_saved_transit_d  = transit_q;
             end
 
             estop_active_d = 1'b1;
@@ -385,6 +393,7 @@ module elevator_controller #(
             dir_up_d       = estop_saved_dir_up_q;
             dir_down_d     = estop_saved_dir_down_q;
             state_d        = estop_saved_state_q;
+            transit_d      = estop_saved_transit_q;
             idle_d         = (estop_saved_state_q != ST_MOVING_UP) &&
                              (estop_saved_state_q != ST_MOVING_DOWN);
         end else begin
@@ -408,6 +417,13 @@ module elevator_controller #(
                     idle_d       = 1'b1;
                     door_open_d  = 1'b0;
                     door_timer_d = '0;
+
+                    if (|transit_q && !(|requests_q)) begin
+                        requests_d = transit_q;
+                        transit_d  = '0;
+                        max_req_d  = scan_highest_request(requests_d);
+                        min_req_d  = scan_lowest_request(requests_d, skip_ground_floor);
+                    end
 
                     if (floor_has_request) begin
                         state_d     = ST_DOOR_OPEN_IDLE;
