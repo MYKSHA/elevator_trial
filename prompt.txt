@@ -1,3 +1,5 @@
 The elevator RTL in sources/ does not correctly implement SPEC.md.
 
 Fix sources/elevator_controller.sv and sources/elevator_group.sv so the test suite passes. Do not modify files under tests/.
+
+Hint: For hall-call dispatch in elevator_dispatch (SPEC §5.2), a car already moving favorably toward an up call above it must outscore an idle car parked many floors away. Check that idle-car distance/load metrics use the spec weighting (distance << 3, load << 2), not weaker shifts.
