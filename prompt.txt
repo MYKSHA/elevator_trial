@@ -5,10 +5,10 @@ Fix sources/elevator_controller.sv and sources/elevator_group.sv so the test sui
 Several independent bugs remain. Read SPEC.md, then audit sources against these areas:
 
 elevator_controller.sv
-- Min-request scan (§3): on a downward sweep, `skip_ground_floor` must not drop a pending floor-0 cabin call when higher floors are requested mid-descent — check how `min_request` is updated.
-- Transit buffer (§4): hall calls accepted while moving are stored in `transit_hall_pending`; they must still stop the car while moving down, merge into `pending_requests` when the car goes idle with only transit left, respect MAX_TRANSIT_STOPS, and be saved/restored across e-stop latch and release (`estop_saved_transit`).
-- Floor service: `floor_has_request` must OR in `transit_hall_pending` even in ST_MOVING_DOWN (not pending alone).
+- §3 min-request rescans: trace `skip_ground_floor` from its combinatorial assignment (near the min/max rescan logic) through every `scan_lowest_request(requests, skip_ground)` call. SPEC §3.3/§3.6: floor 0 is never skipped on a downward sweep — if that flag is true while descending, a pending floor-0 cabin call can vanish from `min_request`, especially after new immediate requests merge mid-descent.
+- §3–§4 movement, transit buffering, and e-stop side effects may diverge from SPEC §3.4–§3.8 in several places.
+- §3.3 stop-at-floor rules apply in motion states too — not only when idle at a floor.
 
-elevator_group.sv — elevator_dispatch (SPEC §5)
-- §5.1 availability: a lift with `hold_beep` or `estop_latched` is unavailable for any new hall assignment — availability must not depend on whether the call floor equals the lift floor.
-- §5.2 idle scoring: idle band metric is `(distance << 3) + (pending_count << 2)`; using `(distance << 2) + load` lets a distant idle car incorrectly beat a car already moving favorably toward the call.
+elevator_group.sv — `compute_lift_score` (SPEC §5)
+- §5.1 lift availability under alarm conditions.
+- §5.2 idle-band vs in-motion scoring weights — compare shift amounts to the §5.2 table; a car moving favorably toward the call should beat a distant idle car.
