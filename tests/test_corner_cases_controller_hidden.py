@@ -358,6 +358,90 @@ async def test_estop_with_full_transit_buffer(dut):
     await wait_serve_at(dut, 10)
 
 
+@cocotb.test()
+async def test_ground_floor_min_request_persists_mid_descent(dut):
+    """Floor 0 must remain the minimum target while descending from the top."""
+    await start_clock(dut)
+    await reset_controller(dut)
+    await pulse_request(dut, TOP_FLOOR)
+    await wait_serve_at(dut, TOP_FLOOR)
+    await pulse_request(dut, 0)
+    await wait_until_moving_down_above(dut, 6)
+    assert int(dut.min_request.value) == 0
+    await pulse_request(dut, 14)
+    await RisingEdge(dut.clk)
+    apply_limits(dut)
+    assert int(dut.min_request.value) == 0
+
+
+@cocotb.test()
+async def test_descent_serves_transit_hall_below_car(dut):
+    """Hall calls registered while moving down must still be served on the sweep."""
+    await start_clock(dut)
+    await reset_controller(dut)
+    await pulse_request(dut, 14)
+    await wait_serve_at(dut, 14)
+    await pulse_request(dut, 2)
+    await wait_until_moving_down_above(dut, 10)
+    await pulse_request(dut, 6, cabin=0, hall_up=0)
+    await wait_for_floor(dut, 6, max_cycles=600)
+
+
+@cocotb.test()
+async def test_transit_promoted_when_idle_after_up_sweep(dut):
+    """Buffered hall calls must merge into the service queue when the car reverses."""
+    await start_clock(dut)
+    await reset_controller(dut)
+    await pulse_request(dut, 8)
+    await wait_until_moving_up(dut)
+    await pulse_request(dut, 13, cabin=0, hall_up=1)
+    await RisingEdge(dut.clk)
+    apply_limits(dut)
+    assert transit_bitmap(dut) & (1 << 13)
+    await wait_serve_at(dut, 8)
+    await wait_for_floor(dut, 13, max_cycles=1200)
+
+
+@cocotb.test()
+async def test_estop_during_descent_keeps_transit_hall(dut):
+    """E-stop must not discard in-flight transit hall targets on the downward path."""
+    await start_clock(dut)
+    await reset_controller(dut)
+    await pulse_request(dut, 13)
+    await wait_serve_at(dut, 13)
+    await pulse_request(dut, 1)
+    await wait_until_moving_down_above(dut, 9)
+    await pulse_request(dut, 9, cabin=0, hall_up=0)
+    await RisingEdge(dut.clk)
+    apply_limits(dut)
+    assert transit_bitmap(dut) & (1 << 9)
+    dut.emergency_stop.value = 1
+    await wait_cycles(dut, 3)
+    dut.emergency_stop.value = 0
+    await wait_cycles(dut, 3)
+    await wait_for_floor(dut, 9, max_cycles=800)
+
+
+@cocotb.test()
+async def test_fifth_transit_hall_ignored_when_buffer_full(dut):
+    """Transit capacity is enforced per SPEC — overflow hall calls must be dropped."""
+    await start_clock(dut)
+    await reset_controller(dut)
+    await pulse_request(dut, 9)
+    await wait_until_moving_up(dut)
+    for _ in range(50):
+        await RisingEdge(dut.clk)
+        apply_limits(dut)
+        if int(dut.current_floor.value) >= 2:
+            break
+    for f in (10, 11, 12, 13, 14):
+        await pulse_request(dut, f, cabin=0, hall_up=1)
+        await RisingEdge(dut.clk)
+        apply_limits(dut)
+    assert bin(transit_bitmap(dut)).count("1") == BUILD_PARAMS["MAX_TRANSIT_STOPS"]
+    assert (transit_bitmap(dut) >> 14) & 1 == 0
+
+
 # --- Limits & safety -----------------------------------------------------------
 
 

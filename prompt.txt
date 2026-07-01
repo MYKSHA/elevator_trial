@@ -2,4 +2,7 @@ The elevator RTL in sources/ does not correctly implement SPEC.md.
 
 Fix sources/elevator_controller.sv and sources/elevator_group.sv so the test suite passes. Do not modify files under tests/.
 
-Hint: Compare elevator_dispatch carefully against SPEC §5.1 (availability) and §5.2 (score bands) — subtle mismatches there affect which car serves a hall call.
+Hints (read SPEC alongside sources/):
+- Controller §4 transit buffer: hall calls accepted while moving must survive direction reversals and e-stop release; capacity limits must be enforced.
+- Group dispatch §5.1: when hold_beep is active, that lift is unavailable for new hall assignment even if the call is on its current floor.
+- Group dispatch §5.2: a car already moving favorably toward a call must outscore an idle car parked many floors away — check idle distance/load weighting.
