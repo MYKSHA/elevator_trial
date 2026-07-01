@@ -2,7 +2,13 @@ The elevator RTL in sources/ does not correctly implement SPEC.md.
 
 Fix sources/elevator_controller.sv and sources/elevator_group.sv so the test suite passes. Do not modify files under tests/.
 
-Hints (read SPEC alongside sources/):
-- Controller §4 transit buffer: hall calls accepted while moving must survive direction reversals and e-stop release; capacity limits must be enforced.
-- Group dispatch §5.1: when hold_beep is active, that lift is unavailable for new hall assignment even if the call is on its current floor.
-- Group dispatch §5.2: a car already moving favorably toward a call must outscore an idle car parked many floors away — check idle distance/load weighting.
+Several independent bugs remain. Read SPEC.md, then audit sources against these areas:
+
+elevator_controller.sv
+- Min-request scan (§3): on a downward sweep, `skip_ground_floor` must not drop a pending floor-0 cabin call when higher floors are requested mid-descent — check how `min_request` is updated.
+- Transit buffer (§4): hall calls accepted while moving are stored in `transit_hall_pending`; they must still stop the car while moving down, merge into `pending_requests` when the car goes idle with only transit left, respect MAX_TRANSIT_STOPS, and be saved/restored across e-stop latch and release (`estop_saved_transit`).
+- Floor service: `floor_has_request` must OR in `transit_hall_pending` even in ST_MOVING_DOWN (not pending alone).
+
+elevator_group.sv — elevator_dispatch (SPEC §5)
+- §5.1 availability: a lift with `hold_beep` or `estop_latched` is unavailable for any new hall assignment — availability must not depend on whether the call floor equals the lift floor.
+- §5.2 idle scoring: idle band metric is `(distance << 3) + (pending_count << 2)`; using `(distance << 2) + load` lets a distant idle car incorrectly beat a car already moving favorably toward the call.
