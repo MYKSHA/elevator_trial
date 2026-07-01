@@ -389,6 +389,53 @@ async def test_hall_and_cabin_mixed_storm(dut):
 
 
 @cocotb.test()
+async def test_hold_beep_same_floor_must_delegate(dut):
+    """A lift in hold_beep must not take a hall call at its parked floor."""
+    await start_clock(dut)
+    await reset_group(dut)
+    await cabin_call(dut, 1, 4)
+    await wait_lift_floor(dut, 1, 4)
+    dut.door_obstructed.value = 1 << 1
+    for _ in range(BUILD_PARAMS["HOLD_BEEP_CYCLES"] + 6):
+        await RisingEdge(dut.clk)
+        if int(dut.hold_beep[1].value) == 1:
+            break
+    await hall_call(dut, 4, up=1)
+    await wait_group_cycles(dut, 20)
+    assert int(dut.last_assigned_lift.value) != 1
+
+
+@cocotb.test()
+async def test_moving_toward_call_beats_idle_at_lobby(dut):
+    """A favorably moving car should win over an idle car parked many floors away."""
+    await start_clock(dut)
+    await reset_group(dut)
+    await cabin_call(dut, 0, 5)
+    await wait_lift_moving_up(dut, 0)
+    for _ in range(200):
+        await RisingEdge(dut.clk)
+        if int(dut.current_floor[0].value) >= 7:
+            break
+    await hall_call(dut, 11, up=1)
+    await wait_group_cycles(dut, 12)
+    assert int(dut.last_assigned_lift.value) == 0
+
+
+@cocotb.test()
+async def test_idle_scoring_does_not_favor_far_parked_car(dut):
+    """Idle dispatch weighting must not let a distant parked lift beat a nearer mover."""
+    await start_clock(dut)
+    await reset_group(dut)
+    await cabin_call(dut, 2, 9)
+    await wait_lift_moving_up(dut, 2)
+    await cabin_call(dut, 5, 0)
+    await wait_lift_floor(dut, 5, 0)
+    await hall_call(dut, 12, up=1)
+    await wait_group_cycles(dut, 15)
+    assert int(dut.last_assigned_lift.value) == 2
+
+
+@cocotb.test()
 async def test_hold_beep_end_reopens_dispatch(dut):
     await start_clock(dut)
     await reset_group(dut)
