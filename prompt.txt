@@ -2,13 +2,13 @@ The elevator RTL in sources/ does not correctly implement SPEC.md.
 
 Fix sources/elevator_controller.sv and sources/elevator_group.sv so the test suite passes. Do not modify files under tests/.
 
-The baseline passes visible regression tests; remaining failures are in stricter hidden coverage. Read SPEC.md end-to-end, then audit sources for gaps — several unrelated defects may coexist.
+Several independent bugs remain. Read SPEC.md, then audit sources against these areas:
 
 elevator_controller.sv
-- §3 request bounds while moving: rescans after new cabin calls arrive mid-sweep (especially descending from the top). Verify floor 0 stays in the service window when SPEC §3.3/§3.6 require it.
-- §3–§4 motion-side stop rules, transit buffering, and recovery paths (including e-stop) — compare combinatorial vs registered state.
-- Stop-at-floor detection must account for all request sources that SPEC treats as active while the car is in motion.
+- §3 min/max rescans while already moving: a new cabin call mid-descent can change the downward sweep bounds — floor 0 must not disappear from the active window (SPEC §3.3/§3.6).
+- §3–§4 transit hall buffering, stops while moving down, idle merge when only buffered calls remain, buffer capacity, and e-stop save/restore of buffered work.
+- Whether a floor is considered “has request” in motion states matches all sources SPEC lists as active.
 
 elevator_group.sv (SPEC §5)
-- Hall assignment eligibility when a lift is not in a normal idle-at-floor state.
-- §5.2 scoring: idle-band vs in-motion tie-breaks — check shift weights against the spec table, not just distance and load.
+- A lift under door-hold or e-stop must not receive new hall assignments regardless of call floor.
+- §5.2 idle-band scoring weights vs in-motion scoring — distant idle cars should not beat a car already moving favorably toward the call.
