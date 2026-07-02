@@ -2,13 +2,13 @@ The elevator RTL in sources/ does not correctly implement SPEC.md.
 
 Fix sources/elevator_controller.sv and sources/elevator_group.sv so the test suite passes. Do not modify files under tests/.
 
-Several independent bugs remain. Read SPEC.md, then audit sources against these areas:
+The baseline passes visible regression tests; remaining failures are in stricter hidden coverage. Read SPEC.md end-to-end, then audit sources for gaps — several unrelated defects may coexist.
 
 elevator_controller.sv
-- Min-request scan (§3): on a downward sweep, `skip_ground_floor` must not drop a pending floor-0 cabin call when higher floors are requested mid-descent — check how `min_request` is updated.
-- Transit buffer (§4): hall calls accepted while moving are stored in `transit_hall_pending`; they must still stop the car while moving down, merge into `pending_requests` when the car goes idle with only transit left, respect MAX_TRANSIT_STOPS, and be saved/restored across e-stop latch and release (`estop_saved_transit`).
-- Floor service: `floor_has_request` must OR in `transit_hall_pending` even in ST_MOVING_DOWN (not pending alone).
+- §3 request bounds while moving: rescans after new cabin calls arrive mid-sweep (especially descending from the top). Verify floor 0 stays in the service window when SPEC §3.3/§3.6 require it.
+- §3–§4 motion-side stop rules, transit buffering, and recovery paths (including e-stop) — compare combinatorial vs registered state.
+- Stop-at-floor detection must account for all request sources that SPEC treats as active while the car is in motion.
 
-elevator_group.sv — elevator_dispatch (SPEC §5)
-- §5.1 availability: a lift with `hold_beep` or `estop_latched` is unavailable for any new hall assignment — availability must not depend on whether the call floor equals the lift floor.
-- §5.2 idle scoring: idle band metric is `(distance << 3) + (pending_count << 2)`; using `(distance << 2) + load` lets a distant idle car incorrectly beat a car already moving favorably toward the call.
+elevator_group.sv (SPEC §5)
+- Hall assignment eligibility when a lift is not in a normal idle-at-floor state.
+- §5.2 scoring: idle-band vs in-motion tie-breaks — check shift weights against the spec table, not just distance and load.
